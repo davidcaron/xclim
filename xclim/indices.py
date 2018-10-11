@@ -282,23 +282,35 @@ def consecutive_frost_days(tasmin, freq='AS-JUL'):
     return d.resample(time=freq).max(dim='time')
 
 
-def consecutive_wet_days(pr, thresh=1.0, freq='YS'):
-    r"""Consecutive wet days.
+def max_consecutive_wet_days(pr, thresh=1.0, freq='YS'):
+    r""" Maximum number of consecutive wet days for a given period (frequency).
 
     Returns the maximum number of consecutive wet days.
 
     Parameters
     ---------
     pr : xarray.DataArray
-      Mean daily precipitation flux [Kg m-2 s-1] or [mm]
-    thresh : float
-      Threshold precipitation on which to base evaluation [Kg m-2 s-1] or [mm]
+      Mean daily precipitation flux
+    thresh : float, optional
+      Threshold precipitation on which to base evaluation of wet day presence
     freq : str, optional
       Resampling frequency
     """
-    if np.all(pr, freq) or thresh:  # Added bunk variable call to satisfy the PEP8 overlords
-        pass
-    raise NotImplementedError
+    # Create an monotonously increasing index [0,1,2,...] along the time dimension.
+    i = xr.DataArray(np.arange(pr.time.size), dims='time')
+    ind = xr.broadcast(i, pr)[0]
+
+    # find index values for dry days: where pr < threshold
+    d = ind.where(pr < thresh)
+
+    # backfill NaNs with the following valid value
+    b = d.bfill(dim='time')
+
+    # consec wet days is difference between start and end indices of dry days
+    d = b.diff(dim='time') - 1
+
+    # return the max for each period
+    return d.resample(time=freq).max(dim='time')
 
 
 # TODO: Clarify valid daily min temperature function and implement it
